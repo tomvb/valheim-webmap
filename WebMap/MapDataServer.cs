@@ -45,6 +45,7 @@ namespace WebMap
     //   /api/sweep (POST)          run a world sweep now
     //   /api/pin (POST) place a pin from the page, /api/unpin?id= (POST) remove one of your own
     //   /api/base (POST) rename or hide an auto-detected base, /api/bases/reset (POST, token)
+    //   /api/cartography-pin (POST) hide a shared Cartography Table pin on the web, /api/cartography-pins/reset (POST, token)
     //   simple endpoints: /map /map.jpg /fog /players /pins /messages /structures /structures/stats
     //               /structures/refresh /forest /forest/stats /vehicles /announce (POST)
     //   websocket: /ws (and / for old clients), JSON frames, see Broadcast()
@@ -390,6 +391,32 @@ namespace WebMap
                     if (!Authorized(req)) return Text(e, "{\"error\":\"forbidden\"}", "application/json", nocache: true, status: 403);
                     int n = Markers.ClearOverrides();
                     BroadcastWorldRevision();
+                    return Text(e, "{\"cleared\":" + n + "}", "application/json", nocache: true);
+                }
+                case "/api/cartography-pin":
+                {
+                    // hide a shared Cartography Table pin on the web only. Body: JSON {x,z,label,hidden:true}
+                    // or {x,z,label} to show it again. Token holder always may; visitors when web_hide_cartography_pins is on.
+                    if (!post) return false;
+                    if (!WEB_HIDE_CARTOGRAPHY_PINS && !Authorized(req)) return Text(e, "{\"error\":\"cartography pin hiding is off\"}", "application/json", nocache: true, status: 403);
+                    string body;
+                    using (var sr = new StreamReader(req.InputStream, Encoding.UTF8)) body = sr.ReadToEnd();
+                    Dictionary<string, object> f;
+                    try { f = JsonParser.Parse(body) as Dictionary<string, object>; } catch { f = null; }
+                    if (f == null || !f.TryGetValue("x", out object xo) || !f.TryGetValue("z", out object zo)) return Text(e, "{\"error\":\"need x and z\"}", "application/json", nocache: true, status: 400);
+                    float x = Convert.ToSingle(xo, CultureInfo.InvariantCulture), z = Convert.ToSingle(zo, CultureInfo.InvariantCulture);
+                    string label = f.TryGetValue("label", out object lo) ? lo as string : "";
+                    bool hidden = f.TryGetValue("hidden", out object ho) && ho is bool hb && hb;
+                    if (!PinRateOk(WebOwner(req, f))) return Text(e, "{\"error\":\"slow down\"}", "application/json", nocache: true, status: 429);
+                    Markers.SetSharedTablePinHidden(x, z, label, hidden);
+                    return Text(e, "{\"ok\":true}", "application/json", nocache: true);
+                }
+                case "/api/cartography-pins/reset":
+                {
+                    // forget every shared Cartography Table pin hide (token)
+                    if (!post) return false;
+                    if (!Authorized(req)) return Text(e, "{\"error\":\"forbidden\"}", "application/json", nocache: true, status: 403);
+                    int n = Markers.ClearHiddenSharedPins();
                     return Text(e, "{\"cleared\":" + n + "}", "application/json", nocache: true);
                 }
                 case "/api/unpin":

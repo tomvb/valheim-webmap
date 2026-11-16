@@ -14,12 +14,17 @@ namespace WebMap
         public static float EXPLORE_RADIUS = 100f;
         public static bool REVEAL_VISITED = true;
         public static int REVEAL_VISITED_MARGIN = 3;
+        public static bool REVEAL_CARTOGRAPHY_TABLES = true;
+        public static float CARTOGRAPHY_SCAN_INTERVAL = 30f;
+        public static bool SHOW_CARTOGRAPHY_PINS = true;
+        public static float CARTOGRAPHY_PIN_MERGE_RADIUS = 20f;
         public static float UPDATE_FOG_TEXTURE_INTERVAL = 2f;
         public static float SAVE_FOG_TEXTURE_INTERVAL = 30f;
         public static int MAX_PINS_PER_USER = 50;
         public static bool WEB_PINS = true;
         public static bool WEB_UNPIN_ANY = true;
         public static bool WEB_EDIT_BASES = true;
+        public static bool WEB_HIDE_CARTOGRAPHY_PINS = true;
         public static int BASE_MIN_PIECES = 30;
         public static int BASE_MIN_PER_CELL = 6;
         public static bool WEBSOCKET_COMPRESSION = false;
@@ -95,8 +100,8 @@ namespace WebMap
                 WebMapConfig.REVEAL_VISITED,
                 "Lift the fog everywhere players have already been, including before the mod was installed. "
                 + "The world save remembers which 64 m zones the game generated; those only exist where someone "
-                + "stood nearby. The in-game map itself lives in each player's character file, which the server "
-                + "never sees, so this is the closest thing to it. Runs at start and after each world walk.").Value;
+                + "stood nearby. Individual in-game maps live in player character files; exploration shared through "
+                + "Cartography Tables is handled separately. Runs at start and after each world walk.").Value;
 
             REVEAL_VISITED_MARGIN = config.Bind("Texture", "reveal_visited_margin",
                 WebMapConfig.REVEAL_VISITED_MARGIN,
@@ -106,6 +111,30 @@ namespace WebMap
                 + "players actually saw. 3 = about 150 m from the path, 4 = about 100 m (the in-game radius), "
                 + "0 = the whole generated area (about 320 m).",
                 new BepInEx.Configuration.AcceptableValueRange<int>(0, 5))).Value;
+
+            REVEAL_CARTOGRAPHY_TABLES = config.Bind("Texture", "reveal_cartography_tables",
+                WebMapConfig.REVEAL_CARTOGRAPHY_TABLES,
+                "Lift fog where players have shared exploration through an in-world cartography table. "
+                + "The server reads only the table's shared map, never player character files.").Value;
+
+            CARTOGRAPHY_SCAN_INTERVAL = config.Bind("Texture", "cartography_scan_interval",
+                WebMapConfig.CARTOGRAPHY_SCAN_INTERVAL,
+                new BepInEx.Configuration.ConfigDescription(
+                    "Seconds between scans for changed cartography tables. The scan is spread over frames; "
+                    + "only changed shared maps are decoded.",
+                    new BepInEx.Configuration.AcceptableValueRange<float>(5f, 600f))).Value;
+
+            SHOW_CARTOGRAPHY_PINS = config.Bind("Markers", "show_cartography_pins",
+                WebMapConfig.SHOW_CARTOGRAPHY_PINS,
+                "Show pins deliberately shared through Cartography Tables as a separate web-map layer. "
+                + "This never reads individual player character files.").Value;
+
+            CARTOGRAPHY_PIN_MERGE_RADIUS = config.Bind("Markers", "cartography_pin_merge_radius",
+                WebMapConfig.CARTOGRAPHY_PIN_MERGE_RADIUS,
+                new BepInEx.Configuration.ConfigDescription(
+                    "Metres within which Cartography Table pins with the same normalized label become one "
+                    + "marker on the web map. Pin icon types are deliberately ignored.",
+                    new BepInEx.Configuration.AcceptableValueRange<float>(1f, 200f))).Value;
 
             UPDATE_FOG_TEXTURE_INTERVAL = config.Bind<float>("Interval", "update_fog_texture_interval",
                 WebMapConfig.UPDATE_FOG_TEXTURE_INTERVAL,
@@ -130,6 +159,11 @@ namespace WebMap
             WEB_EDIT_BASES = config.Bind("User", "web_edit_bases",
                 WebMapConfig.WEB_EDIT_BASES,
                 "Let people rename or hide the auto-detected player bases from the web page (click a base marker). Off: only the token holder can, through the API.").Value;
+
+            WEB_HIDE_CARTOGRAPHY_PINS = config.Bind("User", "web_hide_cartography_pins",
+                WebMapConfig.WEB_HIDE_CARTOGRAPHY_PINS,
+                "Let people hide shared Cartography Table pins from the web map (click the marker). "
+                + "Does not change the in-game table. Off: only the token holder can, through the API.").Value;
 
             BASE_MIN_PIECES = config.Bind("User", "base_min_pieces",
                 WebMapConfig.BASE_MIN_PIECES,
@@ -333,6 +367,7 @@ namespace WebMap
             config["web_pins"] = WEB_PINS;
             config["web_unpin_any"] = WEB_UNPIN_ANY;
             config["web_edit_bases"] = WEB_EDIT_BASES;
+            config["web_hide_cartography_pins"] = WEB_HIDE_CARTOGRAPHY_PINS;
             config["max_pins_per_user"] = MAX_PINS_PER_USER;
             config["always_map"] = ALWAYS_MAP;
             config["always_visible"] = ALWAYS_VISIBLE;

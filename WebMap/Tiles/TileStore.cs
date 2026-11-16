@@ -175,6 +175,34 @@ namespace WebMap.Tiles
             }
         }
 
+        // A Cartography Table can reveal a long run of map pixels at once. Queue
+        // the affected tiles directly instead of taking the queue lock per pixel.
+        public static void OnExploredRect(float minX, float minZ, float maxX, float maxZ)
+        {
+            minX = Math.Max(minX, -TileMath.WORLD_HALF);
+            minZ = Math.Max(minZ, -TileMath.WORLD_HALF);
+            maxX = Math.Min(maxX, TileMath.WORLD_HALF);
+            maxZ = Math.Min(maxZ, TileMath.WORLD_HALF);
+            if (maxX <= minX || maxZ <= minZ) return;
+
+            // WorldToTile maps an outer edge to the following tile, so keep the
+            // upper edge infinitesimally inside the rectangle.
+            maxX -= 0.001f;
+            maxZ -= 0.001f;
+            for (int z = WebMapConfig.PRERENDER_ZOOM + 1; z <= TileMath.MAX_ZOOM; z++)
+            {
+                if (z > WebMapConfig.MAX_RENDER_ZOOM) break;
+                TileMath.WorldToTile(z, minX, minZ, out int ax, out int ay);
+                TileMath.WorldToTile(z, maxX, maxZ, out int bx, out int by);
+                int n = TileMath.TilesPerSide(z);
+                int x0 = Math.Max(0, Math.Min(ax, bx)), x1 = Math.Min(n - 1, Math.Max(ax, bx));
+                int y0 = Math.Max(0, Math.Min(ay, by)), y1 = Math.Min(n - 1, Math.Max(ay, by));
+                for (int y = y0; y <= y1; y++)
+                    for (int x = x0; x <= x1; x++)
+                        Enqueue(z, x, y, 25 + z, onlyIfMissing: true);
+            }
+        }
+
         // The ground in a zone changed: re-render the tiles that show it.
         public static void OnZoneChanged(int zx, int zz)
         {

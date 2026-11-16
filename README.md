@@ -26,12 +26,13 @@ browser. Share `http://your_ip:3000`. Players install nothing. Server only.
   are off on phones unless you turn them on.
 * **Fog of war.** Ground nobody walked on is black. No switch to turn it off.
   Close-up tiles only draw where players walked.
-* **Old trips count.** Install the mod on a world you played for months and
-  the map still opens up everywhere anyone has been. The world save remembers
-  which zones the game built, and it only builds them where someone stood.
-  The mod lifts the fog there at start. Your in-game map itself lives in
-  your character file, which the server never sees, so this is the closest
-  thing to it. See `reveal_visited`.
+* **Old trips and shared maps count.** Install the mod on a world you played
+  for months and the map still opens up everywhere anyone has been. The world
+  save remembers which zones the game built, and it only builds them where
+  someone stood. The mod lifts the fog there at start. Individual in-game maps
+  stay in character files, but exploration written to a Cartography Table is
+  shared world data and also lifts the web map's fog. See `reveal_visited` and
+  `reveal_cartography_tables`.
 * **Live players.** Arrow points where they look. Health bar. Biome. PvP,
   sleeping, dead. Follow one. Pings and chat pins land on the map.
 * **Player card.** Click a player, on the map, in 3D, or in the list. Card
@@ -42,7 +43,9 @@ browser. Share `http://your_ip:3000`. Players install nothing. Server only.
   mountain and castle ruins drawn on the 2D map where someone has been. Boss
   altars, traders, crypt and cave entrances are not in it.
 * **Markers.** Portals with their tags and links, tombstones, player bases,
-  boats, carts, your own `markers.json`. Boss altars, dungeons, traders and
+  boats, carts, Cartography Table pins and your own `markers.json`. Shared
+  table pins with the same normalized label within the merge radius become one
+  marker. Boss altars, dungeons, traders and
   the world seed are never sent out. No spoilers.
 * **Stats.** Per player: time played, visits, deaths, distance, portal trips,
   biomes. Per server: day, explored %, pieces built, trees, who was online
@@ -203,6 +206,11 @@ cuts that by four.
 | Texture | `explore_radius` | 100 | metres revealed around a player |
 | Texture | `reveal_visited` | true | lift fog everywhere the world save shows players have been, even before the mod |
 | Texture | `reveal_visited_margin` | 3 | how far in from the edge of the built zones the reveal stops (0 = 320 m, 3 = 150 m, 4 = 100 m) |
+| Texture | `reveal_cartography_tables` | true | lift fog from the exploration players have written to Cartography Tables |
+| Texture | `cartography_scan_interval` | 30 | seconds between scans for changed Cartography Tables |
+| Markers | `show_cartography_pins` | true | show pins explicitly shared through Cartography Tables in their own layer |
+| Markers | `cartography_pin_merge_radius` | 20 | metres for merging shared Cartography Table pins with the same normalized label; pin type is ignored |
+| User | `web_hide_cartography_pins` | true | let the web page hide shared Cartography Table pins (does not change the in-game table) |
 | Discord | `discord_webhook`, `discord_invite_url` | | webhook for events |
 | Server | `webmap_url`, `max_pins_per_user` | | link shown in game, pin limit |
 | User | `web_pins` | true | let the web page place pins (right click / long press) |
@@ -279,6 +287,8 @@ Steps per editor in [docs/EXPORT.md](https://github.com/f00d4tehg0dz/valheim-web
 | `POST /api/reexport` | export every model again (token) |
 | `POST /api/base` | JSON `{x, z, label}` renames the base nearest that spot, `{x, z, hidden: true}` hides it, `{x, z}` goes back to auto name. Open to everyone unless `web_edit_bases = false` (then token) |
 | `POST /api/bases/reset` | forget every rename and hide (token) |
+| `POST /api/cartography-pin` | JSON `{x, z, label, hidden: true}` hides a shared Cartography Table pin on the web only; `{x, z, label}` shows it again. Open to everyone unless `web_hide_cartography_pins = false` (then token) |
+| `POST /api/cartography-pins/reset` | forget every shared Cartography Table pin hide (token) |
 | `POST /api/reload` | forget cached web files, refresh every open browser (token). Swap files in `web/` without restarting the game |
 | `POST /announce` | message on every player's screen (token) |
 | `/map`, `/map.jpg`, `/fog`, `/players`, `/pins`, `/messages`, `/structures`, `/structures/stats`, `/structures/refresh`, `/forest`, `/forest/stats`, `/vehicles` | simple endpoints: one-image map, plain lists |
@@ -331,6 +341,12 @@ to give it a name, hide it, or go back to the auto name (portal tag near it,
 else "Base"). Saved in `map_data/<world>/bases.json`, so a re-scan keeps
 your names. `web_edit_bases = false` leaves that to the token holder. If a
 lone workbench shows up as a base, raise `base_min_pieces`.
+
+**Shared Cartography Table pins.** Pins written to Cartography Tables show in
+their own layer. Click one → "Hide from web map" to drop it from the website
+only; the in-game table is untouched. Saved in
+`map_data/<world>/cartography_pins.json`. `web_hide_cartography_pins = false`
+leaves that to the token holder.
 
 **From chat.** Type in game:
 
@@ -392,8 +408,10 @@ docker compose -f tools\docker-compose.test.yml up      # first run downloads se
 
 Then <http://localhost:3000>. In game: Join by IP, `127.0.0.1:2456`
 
-A copied world lifts the fog where players have been (`reveal_visited`), not
-what each player's in-game map shows: that lives in their character file.
+A copied world lifts the fog where players have been (`reveal_visited`) and
+what they have deliberately written to Cartography Tables
+(`reveal_cartography_tables`). Individual in-game map data still lives in a
+player's character file.
 Want it all: set `reveal_all = true` in
 `valheim-test\config\bepinex\com.valheimwebmap.server.cfg` and restart. Tiles
 still draw as you look.

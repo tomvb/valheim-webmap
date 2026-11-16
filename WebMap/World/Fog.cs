@@ -128,6 +128,42 @@ namespace WebMap.World
             return revealed;
         }
 
+        // Main thread. Reveals a rectangle from a Cartography Table's shared map.
+        // The game's map pixels are centred at (index - size / 2) * pixel size;
+        // the rectangle bounds supplied by CartographyTables use those pixel edges.
+        public static int RevealRect(float minX, float minZ, float maxX, float maxZ)
+        {
+            if (mask == null || maxX <= minX || maxZ <= minZ) return 0;
+            int x0 = Mathf.CeilToInt(minX / pixelSize + half);
+            int x1 = Mathf.CeilToInt(maxX / pixelSize + half) - 1;
+            int y0 = Mathf.CeilToInt(minZ / pixelSize + half);
+            int y1 = Mathf.CeilToInt(maxZ / pixelSize + half) - 1;
+            if (x1 < 0 || y1 < 0 || x0 >= size || y0 >= size) return 0;
+            x0 = Mathf.Clamp(x0, 0, size - 1); x1 = Mathf.Clamp(x1, 0, size - 1);
+            y0 = Mathf.Clamp(y0, 0, size - 1); y1 = Mathf.Clamp(y1, 0, size - 1);
+
+            int revealed = 0;
+            for (int y = y0; y <= y1; y++)
+            {
+                int row = y * size;
+                for (int x = x0; x <= x1; x++)
+                {
+                    int i = row + x;
+                    if (mask[i] != 0) continue;
+                    mask[i] = 255;
+                    exploredCount++;
+                    revealed++;
+                }
+            }
+            if (revealed > 0)
+            {
+                Dirty = true;
+                pngCache = null;
+                TileStore.OnExploredRect(minX, minZ, maxX, maxZ);
+            }
+            return revealed;
+        }
+
         // Zones the game has generated only exist where a player (or their ship) came within a few
         // zones, so the saved list is a record of everywhere anyone has been, including long before
         // this mod was installed. Reveal them, eroded by a margin so the edge lands near what the

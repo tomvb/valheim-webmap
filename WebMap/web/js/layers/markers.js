@@ -70,6 +70,7 @@ export class MarkerLayers {
         const color = colors[m.icon] || colors[cat] || '#9aa5b5';
         const mk = L.marker(toLatLng(m.x, m.z), { icon: makeIcon(m.icon || cat, color, m.label), riseOnHover: true, keyboard: false });
         if (m.cat === 'base' && window.app?.config?.web_edit_bases !== false) mk.bindPopup(() => this.basePopup(m, set));
+        else if (m.cat === 'shared-pin' && window.app?.config?.web_hide_cartography_pins !== false) mk.bindPopup(() => this.sharedPinPopup(m, set));
         else mk.bindPopup(popupHtml(m, set));
         mk.data = m;
         g.addLayer(mk);
@@ -150,6 +151,32 @@ export class MarkerLayers {
     if (mk) { this.pinGroup.removeLayer(mk); this.pins.delete(id); this.emitPins(); }
   }
 
+  // popup for a shared Cartography Table pin: hide it on the web (not in-game)
+  sharedPinPopup(m, set) {
+    const el = document.createElement('div');
+    el.className = 'shared-pin-popup';
+    el.innerHTML = popupHtml(m, set) + `<div class="pin-actions"><button class="btn small" type="button">Hide from web map</button></div><small class="err" hidden></small>`;
+    const err = el.querySelector('.err');
+    el.querySelector('button').addEventListener('click', async (ev) => {
+      ev.target.disabled = true;
+      try {
+        const r = await fetch('api/cartography-pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-WebMap-Client': clientId() },
+          body: JSON.stringify({ x: m.x, z: m.z, label: m.label, hidden: true }),
+        });
+        if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || r.status); }
+        this.map.closePopup();
+      } catch (e) {
+        console.warn('hide cartography pin', e);
+        err.textContent = 'Could not hide pin: ' + e.message;
+        err.hidden = false;
+        ev.target.disabled = false;
+      }
+    });
+    return el;
+  }
+
   // popup for an auto-detected base: rename it, hide it, or put the name back
   basePopup(m, set) {
     const el = document.createElement('div');
@@ -225,6 +252,7 @@ function popupHtml(m, set) {
   if (m.cat === 'portal') extra = `<small>Portal tag: ${escape(m.tag || '(none)')}</small>`;
   else if (m.cat === 'base') extra = `<small>${m.pieces} pieces</small>`;
   else if (m.cat === 'tombstone') extra = `<small>${m.when ? new Date(m.when / 10000 - 62135596800000).toLocaleString() : ''}</small>`;
+  else if (m.sharedCount) extra = `<small>${m.sharedCount} shared table pin${m.sharedCount === 1 ? '' : 's'}${m.checkedCount ? ` · ${m.checkedCount} crossed off` : ''}</small>`;
   else if (m.prefab) extra = `<small>${escape(m.prefab)}${m.placed === false ? ' · not yet generated' : ''}</small>`;
   else if (m.description) extra = `<small>${escape(m.description)}</small>`;
   return `<b>${escape(m.label)}</b><small>${escape(set.label)} · ${m.x}, ${m.z}</small>${extra ? '<br>' + extra : ''}`;

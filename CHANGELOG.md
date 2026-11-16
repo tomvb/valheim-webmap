@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.8
+
+* Fog now also lifts from exploration deliberately shared through Cartography Tables. The server reads the shared table data only, not player character files. `reveal_cartography_tables` (on) and `cartography_scan_interval` (30 seconds) control it.
+* Shared Cartography Table pins appear in their own web-map layer. Pins with the same normalized label within `cartography_pin_merge_radius` (20 m) become one marker; their in-game icon type is ignored. `show_cartography_pins` turns the layer off.
+* Hide shared Cartography Table pins from the web map (does not change the in-game table). Click the marker → "Hide from web map". Saved in `map_data/<world>/cartography_pins.json`. `web_hide_cartography_pins` turns visitor hiding off (a token still works). `POST /api/cartography-pin`, `POST /api/cartography-pins/reset`.
+
 ## 2.1.7
 
 Brought in [PR #19](https://github.com/f00d4tehg0dz/valheim-webmap/pull/19) by @cocopuff2u. Thanks!
