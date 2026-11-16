@@ -39,7 +39,7 @@ if (-not $candidates) {
 $managed = @($candidates)[0]
 Write-Host "Game assemblies: $managed"
 New-Item -ItemType Directory -Force libs\valheim | Out-Null
-$needed = @("assembly_valheim.dll", "assembly_utils.dll", "Mono.Security.dll", "UnityEngine.dll", "UnityEngine.CoreModule.dll",
+$needed = @("assembly_valheim.dll", "assembly_utils.dll", "assembly_guiutils.dll", "Mono.Security.dll", "UnityEngine.dll", "UnityEngine.CoreModule.dll",
             "UnityEngine.JSONSerializeModule.dll", "UnityEngine.ImageConversionModule.dll", "Splatform.dll", "com.rlabrecque.steamworks.net.dll")
 foreach ($f in $needed) {
   $src = Join-Path $managed $f

@@ -37,6 +37,7 @@
     <Reference Include="BepInEx.Harmony"><HintPath>..\libs\BepInEx\core\BepInEx.Harmony.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="assembly_valheim"><HintPath>..\libs\valheim\assembly_valheim.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="assembly_utils"><HintPath>..\libs\valheim\assembly_utils.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="assembly_guiutils"><HintPath>..\libs\valheim\assembly_guiutils.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Mono.Security"><HintPath>..\libs\valheim\Mono.Security.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>..\libs\valheim\UnityEngine.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>..\libs\valheim\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
