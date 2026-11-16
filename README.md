@@ -213,7 +213,7 @@ cuts that by four.
 | Markers | `cartography_pin_merge_radius` | 20 | metres for merging shared Cartography Table pins with the same normalized label; pin type is ignored for merging (still used for the displayed icon) |
 | User | `web_hide_cartography_pins` | true | let the web page hide shared Cartography Table pins (does not change the in-game table) |
 | Discord | `discord_webhook`, `discord_invite_url` | | webhook for events |
-| Server | `webmap_url`, `max_pins_per_user`, `web_pin_interval` | | link shown in game, pin limit, seconds between pin actions (default 2; 0 = off) |
+| Server | `webmap_url`, `max_pins_per_user`, `web_pin_interval` | | link shown in game, pin limit, seconds between pin/unpin (default 2; 0 = off; hide shared pins is unlimited) |
 | User | `web_pins` | true | let the web page place pins (right click / long press) |
 | User | `web_unpin_any` | true | anyone can remove any pin from the web page. Off: only your own |
 | User | `web_edit_bases` | true | let the web page rename or hide auto-detected bases (click the marker) |

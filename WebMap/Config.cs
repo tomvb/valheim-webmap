@@ -149,12 +149,20 @@ namespace WebMap
                 WebMapConfig.MAX_PINS_PER_USER,
                 "How many pins each client is allowed to make before old ones start being deleted.").Value;
 
-            WEB_PIN_INTERVAL = config.Bind("User", "web_pin_interval",
+            var pinInterval = config.Bind("User", "web_pin_interval",
                 WebMapConfig.WEB_PIN_INTERVAL,
                 new ConfigDescription(
-                    "Minimum seconds between pin, unpin, or hide-cartography-pin actions from the same browser. "
-                    + "Faster requests get HTTP 429 (slow down). 0 turns the limit off.",
-                    new AcceptableValueRange<float>(0f, 60f))).Value;
+                    "Minimum seconds between pin or unpin actions from the same browser. "
+                    + "Faster requests get HTTP 429 (slow down). 0 turns the limit off. "
+                    + "Hiding shared Cartography Table pins is not rate-limited.",
+                    new AcceptableValueRange<float>(0f, 60f)));
+            WEB_PIN_INTERVAL = pinInterval.Value;
+            pinInterval.SettingChanged += (_, __) =>
+            {
+                WEB_PIN_INTERVAL = pinInterval.Value;
+                ZLog.Log("WebMap: web_pin_interval = " + WEB_PIN_INTERVAL.ToString("0.###", CultureInfo.InvariantCulture) + "s");
+            };
+            ZLog.Log("WebMap: web_pin_interval = " + WEB_PIN_INTERVAL.ToString("0.###", CultureInfo.InvariantCulture) + "s");
 
             WEB_PINS = config.Bind("User", "web_pins",
                 WebMapConfig.WEB_PINS,

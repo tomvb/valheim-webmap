@@ -409,7 +409,8 @@ namespace WebMap
                     string label = f.TryGetValue("label", out object lo) ? lo as string : "";
                     string key = f.TryGetValue("key", out object ko) ? ko as string : null;
                     bool hidden = f.TryGetValue("hidden", out object ho) && ho is bool hb && hb;
-                    if (!PinRateOk(WebOwner(req, f))) return Text(e, "{\"error\":\"slow down\"}", "application/json", nocache: true, status: 429);
+                    // Hiding is not rate-limited: clearing many shared pins is normal and
+                    // web_pin_interval only guards pin create / unpin / base edits.
                     Markers.SetSharedTablePinHidden(x, z, label, hidden, key);
                     return Text(e, "{\"ok\":true}", "application/json", nocache: true);
                 }

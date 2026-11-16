@@ -399,6 +399,7 @@ namespace WebMap.World
         private const int PinHildir1 = 14;
         private const int PinHildir2 = 15;
         private const int PinHildir3 = 16;
+        private const int PinMemorial = 17;
 
         // The first pin is the cluster anchor; the rendered position is the
         // average of every source pin in the cluster. This keeps merges stable
@@ -452,6 +453,7 @@ namespace WebMap.World
                 case PinHildir1:
                 case PinHildir2:
                 case PinHildir3: return 30;
+                case PinMemorial:
                 case PinDeath: return 20;
                 case PinIcon0:
                 case PinIcon1:
@@ -492,8 +494,11 @@ namespace WebMap.World
         // covers player-placed icons and Hildir quest markers.
         private static void ClassifySharedPin(int pinType, string rawLabel, out string cat, out string icon)
         {
-            string key = rawLabel ?? "";
-            if (key.StartsWith("$enemy_", StringComparison.OrdinalIgnoreCase))
+            string key = ExtractLocalizationKey(rawLabel);
+            string lower = key.ToLowerInvariant();
+            if (lower.StartsWith("$enemy_", StringComparison.Ordinal) || lower.Contains("gdking")
+                || lower.Contains("eikthyr") || lower.Contains("bonemass") || lower.Contains("dragonqueen")
+                || lower.Contains("goblinking") || lower.Contains("seekerqueen") || lower.Contains("fader"))
             {
                 cat = "boss"; icon = "boss"; return;
             }
@@ -520,6 +525,8 @@ namespace WebMap.World
                     cat = "trader"; icon = "trader"; return;
                 case PinDeath:
                     cat = "tombstone"; icon = "tombstone"; return;
+                case PinMemorial:
+                    cat = "runestone"; icon = "runestone"; return;
                 case PinIcon0:
                     cat = "shared-pin"; icon = "fire"; return;
                 case PinIcon1:
@@ -534,6 +541,27 @@ namespace WebMap.World
                 default:
                     cat = "shared-pin"; icon = "pin"; return;
             }
+        }
+
+        // Shared-map names sometimes carry rich-text wrappers; pull out the $token when present.
+        private static string ExtractLocalizationKey(string rawLabel)
+        {
+            if (string.IsNullOrEmpty(rawLabel)) return "";
+            string s = rawLabel.Trim();
+            if (s.IndexOf('<') >= 0)
+            {
+                var sb = new StringBuilder(s.Length);
+                bool inTag = false;
+                foreach (char c in s)
+                {
+                    if (c == '<') { inTag = true; continue; }
+                    if (c == '>') { inTag = false; continue; }
+                    if (!inTag) sb.Append(c);
+                }
+                s = sb.ToString().Trim();
+            }
+            int dollar = s.IndexOf('$');
+            return dollar >= 0 ? s.Substring(dollar).Trim() : s;
         }
 
         private static bool LooksLikeTraderLabel(string key)
