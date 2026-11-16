@@ -21,7 +21,7 @@ namespace WebMap
     {
         public const string GUID = "com.valheimwebmap.server";
         public const string NAME = "WebMap";
-        public const string VERSION = "2.1.7";
+        public const string VERSION = "2.1.8";
 
         private static readonly string[] ALLOWED_PINS = { "dot", "fire", "mine", "house", "cave" };
 
@@ -124,6 +124,7 @@ namespace WebMap
             Markers.LoadOverrides(worldDataPath);
             TileStore.Init(worldDataPath);
             Models.ModelStore.Init(mapDataPath);
+            CartographyTables.Init();
 
             if (forceReload) mapDataServer.Reload();
         }
@@ -132,6 +133,7 @@ namespace WebMap
         {
             StaticCoroutine.Start(PlayerSnapshotLoop());
             StaticCoroutine.Start(UpdateFogLoop());
+            StaticCoroutine.Start(CartographyTables.Loop());
             StaticCoroutine.Start(SaveLoop());
             StaticCoroutine.Start(WorldSweep.Loop());
             StaticCoroutine.Start(Announce.Pump());
@@ -448,6 +450,7 @@ namespace WebMap
             {
                 try { Stats.Save(force: true); } catch { }
                 try { if (Fog.Dirty) Fog.Save(Path.Combine(worldDataPath, "fog.png")); } catch { }
+                CartographyTables.Stop();
                 TileStore.Stop();
                 mapDataServer.Stop();
                 WebMap.instance.NotifyOffline();

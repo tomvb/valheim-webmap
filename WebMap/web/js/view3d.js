@@ -528,7 +528,7 @@ uniform sampler2D uFog; uniform float uFogOn; uniform float uFogOpacity; uniform
     for (const s of [...this.pinSprites.children]) { this.pinSprites.remove(s); s.material.map?.dispose(); s.material.dispose(); }
     for (const p of this.pins) {
       const icon = ['dot', 'fire', 'mine', 'house', 'cave'].includes(p.type) ? p.type : 'pin';
-      const sprite = makeLabel(layerState.labels ? (p.text || p.name || 'pin') : '', iconColors[icon] || '#ffd166');
+      const sprite = makeLabel(layerState.labels ? (p.text || p.name || 'pin') : '', iconColors[icon] || '#ffd166', 1, icon);
       sprite.position.set(p.x, (this.heightAt(p.x, p.z) ?? this.waterLevel) + 4, -p.z);
       this.pinSprites.add(sprite);
     }
@@ -895,8 +895,9 @@ uniform sampler2D uFog; uniform float uFogOn; uniform float uFogOpacity; uniform
     for (const s of [...this.markerSprites.children]) { this.markerSprites.remove(s); s.material.map?.dispose(); s.material.dispose(); }
     for (const set of markerStore.sets) {
       for (const m of set.markers || []) {
+        const icon = m.icon || m.cat || 'poi';
         const color = iconColors[m.icon] || iconColors[m.cat] || '#9aa5b5';
-        const sprite = makeLabel(layerState.labels ? m.label : '', color);
+        const sprite = makeLabel(layerState.labels ? m.label : '', color, 1, icon);
         const y = (m.y ?? this.heightAt(m.x, m.z) ?? this.waterLevel) + 6;
         sprite.position.set(m.x, y, -m.z);
         sprite.userData = Object.assign({}, m, { set: set.id });
@@ -1016,17 +1017,22 @@ function sampleBilinear(h, u, v) {
   return (a + (b - a) * tx) * (1 - ty) + (c + (d - c) * tx) * ty;
 }
 
-function makeLabel(text, color, scale = 1) {
+function makeLabel(text, color, scale = 1, iconName = null) {
   const c = document.createElement('canvas');
   const ctx = c.getContext('2d');
   ctx.font = '600 28px system-ui, sans-serif';
-  const w = Math.ceil(ctx.measureText(text).width) + 36;
+  const label = text || '';
+  const iconPad = iconName ? 40 : 36;
+  const w = Math.max(iconPad, Math.ceil(ctx.measureText(label).width) + iconPad);
   c.width = w; c.height = 48;
   ctx.font = '600 28px system-ui, sans-serif';
   ctx.fillStyle = 'rgba(10,12,18,.7)';
   roundRect(ctx, 0, 0, w, 48, 12); ctx.fill();
-  ctx.fillStyle = color; ctx.beginPath(); ctx.arc(18, 24, 8, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(text, 32, 25);
+  if (iconName) drawMarkerIcon(ctx, 22, 24, iconName, color);
+  else { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(18, 24, 8, 0, Math.PI * 2); ctx.fill(); }
+  if (label) {
+    ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(label, iconName ? 40 : 32, 25);
+  }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, sizeAttenuation: true, transparent: true, toneMapped: false }));
@@ -1034,6 +1040,63 @@ function makeLabel(text, color, scale = 1) {
   sprite.scale.set(sprite.aspect * 6 * scale, 6 * scale, 1);
   sprite.renderOrder = 999;
   return sprite;
+}
+
+// Compact canvas stand-ins for the 2D SVG glyphs so 3D markers are not all identical dots.
+function drawMarkerIcon(ctx, cx, cy, name, color) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.fillStyle = color;
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = 'round';
+  switch (name) {
+    case 'boss':
+      ctx.beginPath();
+      ctx.moveTo(-10, -2); ctx.lineTo(-6, 2); ctx.lineTo(-2, -8); ctx.lineTo(2, 2); ctx.lineTo(6, -2);
+      ctx.lineTo(8, 10); ctx.lineTo(-8, 10); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      break;
+    case 'trader':
+      ctx.beginPath(); ctx.moveTo(-9, -2); ctx.lineTo(9, -2); ctx.lineTo(7, 10); ctx.lineTo(-7, 10); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-5, -2); ctx.lineTo(-5, -7); ctx.bezierCurveTo(-5, -12, 5, -12, 5, -7); ctx.lineTo(5, -2);
+      ctx.stroke();
+      break;
+    case 'dungeon':
+    case 'house':
+      ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(10, -2); ctx.lineTo(10, 10); ctx.lineTo(-10, 10); ctx.lineTo(-10, -2);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#111'; ctx.fillRect(-3, 2, 6, 8);
+      break;
+    case 'cave':
+      ctx.beginPath(); ctx.moveTo(-10, 10); ctx.quadraticCurveTo(-10, -10, 0, -10); ctx.quadraticCurveTo(10, -10, 10, 10);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      break;
+    case 'fire':
+      ctx.beginPath(); ctx.moveTo(0, -10); ctx.bezierCurveTo(8, -2, 8, 4, 0, 10); ctx.bezierCurveTo(-8, 4, -8, -2, 0, -10);
+      ctx.fill(); ctx.stroke();
+      break;
+    case 'portal':
+      ctx.beginPath(); ctx.ellipse(0, 0, 6, 10, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.ellipse(0, 0, 2.5, 5, 0, 0, Math.PI * 2); ctx.fill();
+      break;
+    case 'tombstone':
+      ctx.beginPath(); ctx.moveTo(-7, 10); ctx.lineTo(-7, -2); ctx.quadraticCurveTo(-7, -10, 0, -10);
+      ctx.quadraticCurveTo(7, -10, 7, -2); ctx.lineTo(7, 10); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      break;
+    case 'pin':
+      ctx.beginPath(); ctx.moveTo(0, 10); ctx.bezierCurveTo(10, 0, 8, -10, 0, -10); ctx.bezierCurveTo(-8, -10, -10, 0, 0, 10);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(0, -4, 2.5, 0, Math.PI * 2); ctx.fill();
+      break;
+    case 'dot':
+    default:
+      ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      break;
+  }
+  ctx.restore();
 }
 
 function roundRect(ctx, x, y, w, h, r) {
