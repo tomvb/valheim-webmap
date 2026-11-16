@@ -897,10 +897,11 @@ uniform sampler2D uFog; uniform float uFogOn; uniform float uFogOpacity; uniform
       for (const m of set.markers || []) {
         const icon = m.icon || m.cat || 'poi';
         const color = iconColors[m.icon] || iconColors[m.cat] || '#9aa5b5';
-        const sprite = makeLabel(layerState.labels ? m.label : '', color, 1, icon);
+        const sprite = makeLabel(layerState.labels ? m.label : '', color, 1, icon, !!m.checkedOff);
         const y = (m.y ?? this.heightAt(m.x, m.z) ?? this.waterLevel) + 6;
         sprite.position.set(m.x, y, -m.z);
         sprite.userData = Object.assign({}, m, { set: set.id });
+        if (m.checkedOff) sprite.material.opacity = 0.7;
         this.markerSprites.add(sprite);
       }
     }
@@ -1017,7 +1018,7 @@ function sampleBilinear(h, u, v) {
   return (a + (b - a) * tx) * (1 - ty) + (c + (d - c) * tx) * ty;
 }
 
-function makeLabel(text, color, scale = 1, iconName = null) {
+function makeLabel(text, color, scale = 1, iconName = null, checkedOff = false) {
   const c = document.createElement('canvas');
   const ctx = c.getContext('2d');
   ctx.font = '600 28px system-ui, sans-serif';
@@ -1028,10 +1029,31 @@ function makeLabel(text, color, scale = 1, iconName = null) {
   ctx.font = '600 28px system-ui, sans-serif';
   ctx.fillStyle = 'rgba(10,12,18,.7)';
   roundRect(ctx, 0, 0, w, 48, 12); ctx.fill();
-  if (iconName) drawMarkerIcon(ctx, 22, 24, iconName, color);
-  else { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(18, 24, 8, 0, Math.PI * 2); ctx.fill(); }
+  const drawColor = checkedOff ? '#9aa5b5' : color;
+  if (iconName) drawMarkerIcon(ctx, 22, 24, iconName, drawColor);
+  else { ctx.fillStyle = drawColor; ctx.beginPath(); ctx.arc(18, 24, 8, 0, Math.PI * 2); ctx.fill(); }
+  const textX = iconName ? 40 : 32;
   if (label) {
-    ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(label, iconName ? 40 : 32, 25);
+    ctx.fillStyle = checkedOff ? '#c8c8c8' : '#fff';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, textX, 25);
+    if (checkedOff) {
+      const tw = ctx.measureText(label).width;
+      ctx.strokeStyle = '#e8e8e8';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(textX - 2, 25);
+      ctx.lineTo(textX + tw + 2, 25);
+      ctx.stroke();
+    }
+  }
+  if (checkedOff && iconName) {
+    ctx.strokeStyle = '#f2f2f2';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(10, 14);
+    ctx.lineTo(34, 34);
+    ctx.stroke();
   }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;

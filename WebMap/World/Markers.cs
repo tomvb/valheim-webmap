@@ -365,6 +365,9 @@ namespace WebMap.World
                  .Prop("key", pin.key).Prop("rawLabel", pin.rawLabel).Prop("pinType", pin.pinType)
                  .Prop("sharedCount", pin.count);
                 if (pin.checkedCount > 0) j.Prop("checkedCount", pin.checkedCount);
+                // Crossed out on the web map only when every merged source pin is checked,
+                // matching a single in-game pin's m_checked state.
+                if (pin.count > 0 && pin.checkedCount >= pin.count) j.Prop("checkedOff", true);
                 j.End();
             }
             j.End().End();

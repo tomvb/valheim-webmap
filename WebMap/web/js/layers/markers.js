@@ -9,10 +9,11 @@ import { getJSON, on } from '../net.js';
 
 export const LOCATION_CATS = ['spawn', 'boss', 'trader', 'dungeon', 'camp', 'village', 'ruin', 'runestone', 'poi'];
 
-export function makeIcon(name, color, label, cls = 'mk') {
+export function makeIcon(name, color, label, cls = 'mk', checkedOff = false) {
+  const classes = checkedOff ? `${cls} checked-off` : cls;
   return L.divIcon({
     className: '',
-    html: `<div class="${cls}">${iconSvg(name, color)}${label ? `<div class="lbl">${escape(label)}</div>` : ''}</div>`,
+    html: `<div class="${classes}">${iconSvg(name, color)}${label ? `<div class="lbl">${escape(label)}</div>` : ''}</div>`,
     iconSize: cls === 'mk-pin' ? [18, 18] : [26, 26],
     iconAnchor: cls === 'mk-pin' ? [9, 18] : [13, 13],
     tooltipAnchor: [0, -12],
@@ -68,7 +69,11 @@ export class MarkerLayers {
         const cat = m.cat || 'custom';
         if (set.id === 'locations' && this.catVisible.get(cat) === false) continue;
         const color = colors[m.icon] || colors[cat] || '#9aa5b5';
-        const mk = L.marker(toLatLng(m.x, m.z), { icon: makeIcon(m.icon || cat, color, m.label), riseOnHover: true, keyboard: false });
+        const mk = L.marker(toLatLng(m.x, m.z), {
+          icon: makeIcon(m.icon || cat, color, m.label, 'mk', !!m.checkedOff),
+          riseOnHover: true,
+          keyboard: false,
+        });
         if (m.cat === 'base' && window.app?.config?.web_edit_bases !== false) mk.bindPopup(() => this.basePopup(m, set));
         else if (set.id === 'cartography-pins' && window.app?.config?.web_hide_cartography_pins !== false) mk.bindPopup(() => this.sharedPinPopup(m, set));
         else mk.bindPopup(popupHtml(m, set));
@@ -257,5 +262,6 @@ function popupHtml(m, set) {
   else if (m.sharedCount) extra = `<small>${m.sharedCount} shared table pin${m.sharedCount === 1 ? '' : 's'}${m.checkedCount ? ` · ${m.checkedCount} crossed off` : ''}</small>`;
   else if (m.prefab) extra = `<small>${escape(m.prefab)}${m.placed === false ? ' · not yet generated' : ''}</small>`;
   else if (m.description) extra = `<small>${escape(m.description)}</small>`;
-  return `<b>${escape(m.label)}</b><small>${escape(set.label)} · ${m.x}, ${m.z}</small>${extra ? '<br>' + extra : ''}`;
+  const title = m.checkedOff ? `<b class="checked-off">${escape(m.label)}</b>` : `<b>${escape(m.label)}</b>`;
+  return `${title}<small>${escape(set.label)} · ${m.x}, ${m.z}</small>${extra ? '<br>' + extra : ''}`;
 }

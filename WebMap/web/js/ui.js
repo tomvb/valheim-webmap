@@ -159,8 +159,8 @@ export class Sidebar {
       const list = el('<div></div>');
       const max = 200;
       ms.slice(0, max).forEach((m) => {
-        const r = el(`<div class="row clickable"><span class="ico">${iconSvg(m.icon || m.cat, colors[m.icon] || colors[m.cat])}</span>
-          <div class="grow"><div class="name">${escape(m.label)}</div><div class="meta">${m.x}, ${m.z}${m.cat && m.cat !== m.label ? ' · ' + escape(m.cat) : ''}</div></div></div>`);
+        const r = el(`<div class="row clickable${m.checkedOff ? ' checked-off' : ''}"><span class="ico">${iconSvg(m.icon || m.cat, colors[m.icon] || colors[m.cat])}</span>
+          <div class="grow"><div class="name">${escape(m.label)}</div><div class="meta">${m.x}, ${m.z}${m.cat && m.cat !== m.label ? ' · ' + escape(m.cat) : ''}${m.checkedOff ? ' · crossed off' : ''}</div></div></div>`);
         r.addEventListener('click', () => this.app.goTo(m.x, m.z, Math.max(this.app.map.getZoom(), 6)));
         list.append(r);
       });
