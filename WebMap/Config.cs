@@ -21,6 +21,7 @@ namespace WebMap
         public static float UPDATE_FOG_TEXTURE_INTERVAL = 2f;
         public static float SAVE_FOG_TEXTURE_INTERVAL = 30f;
         public static int MAX_PINS_PER_USER = 50;
+        public static float WEB_PIN_INTERVAL = 2f;
         public static bool WEB_PINS = true;
         public static bool WEB_UNPIN_ANY = true;
         public static bool WEB_EDIT_BASES = true;
@@ -147,6 +148,13 @@ namespace WebMap
             MAX_PINS_PER_USER = config.Bind("User", "max_pins_per_user",
                 WebMapConfig.MAX_PINS_PER_USER,
                 "How many pins each client is allowed to make before old ones start being deleted.").Value;
+
+            WEB_PIN_INTERVAL = config.Bind("User", "web_pin_interval",
+                WebMapConfig.WEB_PIN_INTERVAL,
+                new ConfigDescription(
+                    "Minimum seconds between pin, unpin, or hide-cartography-pin actions from the same browser. "
+                    + "Faster requests get HTTP 429 (slow down). 0 turns the limit off.",
+                    new AcceptableValueRange<float>(0f, 60f))).Value;
 
             WEB_PINS = config.Bind("User", "web_pins",
                 WebMapConfig.WEB_PINS,

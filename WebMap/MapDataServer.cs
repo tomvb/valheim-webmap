@@ -470,10 +470,12 @@ namespace WebMap
 
         private static bool PinRateOk(string owner)
         {
+            float interval = WEB_PIN_INTERVAL;
+            if (interval <= 0f) return true;
             float now = (float)(DateTime.UtcNow - new DateTime(2020, 1, 1)).TotalSeconds;
             lock (pinLast)
             {
-                if (pinLast.TryGetValue(owner, out float last) && now - last < 2f) return false;
+                if (pinLast.TryGetValue(owner, out float last) && now - last < interval) return false;
                 pinLast[owner] = now;
                 if (pinLast.Count > 512) pinLast.Clear();
             }
