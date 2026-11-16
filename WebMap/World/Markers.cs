@@ -75,6 +75,8 @@ namespace WebMap.World
 
         // Shared Cartography Table pins can be hidden on the web without touching the
         // in-game table. Matched by normalized label + proximity (same rule as merging).
+        // Empty in-game labels display as UnnamedSharedPinLabel but still merge/hide as "".
+        private const string UnnamedSharedPinLabel = "(unnamed pin)";
         private sealed class HiddenSharedPin { public string key; public float x, z; }
         private static List<HiddenSharedPin> hiddenSharedPins;
         private static string hiddenSharedPinsPath;
@@ -109,7 +111,8 @@ namespace WebMap.World
                     if (o is Dictionary<string, object> d)
                     {
                         string key = JsonParser.Str(d, "key", null);
-                        if (key == null) key = NormalizePinLabel(JsonParser.Str(d, "label", ""));
+                        if (key == null) key = HideKeyFromLabel(JsonParser.Str(d, "label", ""));
+                        else key = CanonicalHideKey(key);
                         hiddenSharedPins.Add(new HiddenSharedPin { key = key ?? "", x = (float)JsonParser.Num(d, "x"), z = (float)JsonParser.Num(d, "z") });
                     }
             }
@@ -210,20 +213,34 @@ namespace WebMap.World
 
         // From the web page: hide a shared Cartography Table pin on the web map only,
         // or clear that hide. Does not rewrite the in-game table.
-        public static void SetSharedTablePinHidden(float x, float z, string label, bool hidden)
+        // Prefer the marker's merge `key` when the client sends it; otherwise derive
+        // from label, mapping the display sentinel "(unnamed pin)" back to "".
+        public static void SetSharedTablePinHidden(float x, float z, string label, bool hidden, string key = null)
         {
             if (hiddenSharedPins == null) hiddenSharedPins = new List<HiddenSharedPin>();
-            string key = NormalizePinLabel(label);
+            string hideKey = key != null ? CanonicalHideKey(key) : HideKeyFromLabel(label);
             lock (hiddenSharedPins)
             {
-                var o = FindHiddenSharedPin(key, x, z);
+                var o = FindHiddenSharedPin(hideKey, x, z);
                 if (!hidden) { if (o != null) hiddenSharedPins.Remove(o); }
-                else if (o == null) hiddenSharedPins.Add(new HiddenSharedPin { key = key, x = x, z = z });
+                else if (o == null) hiddenSharedPins.Add(new HiddenSharedPin { key = hideKey, x = x, z = z });
                 else { o.x = x; o.z = z; }
             }
             SaveHiddenSharedPins();
             try { json = Build(); rev++; MapDataServer.getInstance()?.BroadcastWorldRevision(); }
             catch (Exception e) { ZLog.LogWarning("WebMap: shared Cartography Table pin hide failed: " + e.Message); }
+        }
+
+        private static string HideKeyFromLabel(string label) => CanonicalHideKey(NormalizePinLabel(label));
+
+        // Older clients sent the localized display label for empty pins; that must
+        // not become a distinct hide key from the empty merge key.
+        private static string CanonicalHideKey(string key)
+        {
+            if (key == null) return "";
+            if (string.Equals(key, UnnamedSharedPinLabel, StringComparison.OrdinalIgnoreCase)) return "";
+            if (string.Equals(NormalizePinLabel(key), NormalizePinLabel(UnnamedSharedPinLabel), StringComparison.Ordinal)) return "";
+            return key;
         }
 
         public static int ClearHiddenSharedPins()
@@ -345,7 +362,7 @@ namespace WebMap.World
                 string display = LocalizePinLabel(pin.rawLabel);
                 j.BeginObject().Prop("x", pin.x, 1).Prop("z", pin.z, 1).Prop("y", pin.y, 1)
                  .Prop("cat", cat).Prop("icon", icon).Prop("label", display)
-                 .Prop("rawLabel", pin.rawLabel).Prop("pinType", pin.pinType)
+                 .Prop("key", pin.key).Prop("rawLabel", pin.rawLabel).Prop("pinType", pin.pinType)
                  .Prop("sharedCount", pin.count);
                 if (pin.checkedCount > 0) j.Prop("checkedCount", pin.checkedCount);
                 j.End();
@@ -450,7 +467,7 @@ namespace WebMap.World
         // Localization is missing (early boot / non-game thread): keep the key.
         private static string LocalizePinLabel(string label)
         {
-            if (string.IsNullOrWhiteSpace(label)) return "(unnamed pin)";
+            if (string.IsNullOrWhiteSpace(label)) return UnnamedSharedPinLabel;
             string trimmed = label.Trim();
             if (trimmed.IndexOf('$') < 0) return trimmed;
             try

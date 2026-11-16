@@ -395,8 +395,9 @@ namespace WebMap
                 }
                 case "/api/cartography-pin":
                 {
-                    // hide a shared Cartography Table pin on the web only. Body: JSON {x,z,label,hidden:true}
-                    // or {x,z,label} to show it again. Token holder always may; visitors when web_hide_cartography_pins is on.
+                    // hide a shared Cartography Table pin on the web only. Body: JSON
+                    // {x,z,key,hidden:true} (preferred) or {x,z,label,hidden:true}; omit hidden to show again.
+                    // Token holder always may; visitors when web_hide_cartography_pins is on.
                     if (!post) return false;
                     if (!WEB_HIDE_CARTOGRAPHY_PINS && !Authorized(req)) return Text(e, "{\"error\":\"cartography pin hiding is off\"}", "application/json", nocache: true, status: 403);
                     string body;
@@ -406,9 +407,10 @@ namespace WebMap
                     if (f == null || !f.TryGetValue("x", out object xo) || !f.TryGetValue("z", out object zo)) return Text(e, "{\"error\":\"need x and z\"}", "application/json", nocache: true, status: 400);
                     float x = Convert.ToSingle(xo, CultureInfo.InvariantCulture), z = Convert.ToSingle(zo, CultureInfo.InvariantCulture);
                     string label = f.TryGetValue("label", out object lo) ? lo as string : "";
+                    string key = f.TryGetValue("key", out object ko) ? ko as string : null;
                     bool hidden = f.TryGetValue("hidden", out object ho) && ho is bool hb && hb;
                     if (!PinRateOk(WebOwner(req, f))) return Text(e, "{\"error\":\"slow down\"}", "application/json", nocache: true, status: 429);
-                    Markers.SetSharedTablePinHidden(x, z, label, hidden);
+                    Markers.SetSharedTablePinHidden(x, z, label, hidden, key);
                     return Text(e, "{\"ok\":true}", "application/json", nocache: true);
                 }
                 case "/api/cartography-pins/reset":

@@ -163,7 +163,9 @@ export class MarkerLayers {
         const r = await fetch('api/cartography-pin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-WebMap-Client': clientId() },
-          body: JSON.stringify({ x: m.x, z: m.z, label: m.rawLabel || m.label, hidden: true }),
+          // Prefer merge key: empty rawLabel is falsy, so `rawLabel || label` wrongly
+          // sent the display sentinel "(unnamed pin)" and the hide never matched.
+          body: JSON.stringify({ x: m.x, z: m.z, key: m.key ?? '', label: m.rawLabel ?? m.label ?? '', hidden: true }),
         });
         if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || r.status); }
         this.map.closePopup();
