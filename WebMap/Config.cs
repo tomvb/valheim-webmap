@@ -133,7 +133,7 @@ namespace WebMap
                 WebMapConfig.CARTOGRAPHY_PIN_MERGE_RADIUS,
                 new BepInEx.Configuration.ConfigDescription(
                     "Metres within which Cartography Table pins with the same normalized label become one "
-                    + "marker on the web map. Pin icon types are deliberately ignored.",
+                    + "marker on the web map. Pin icon types are ignored for merging (they still set the displayed icon).",
                     new BepInEx.Configuration.AcceptableValueRange<float>(1f, 200f))).Value;
 
             UPDATE_FOG_TEXTURE_INTERVAL = config.Bind<float>("Interval", "update_fog_texture_interval",

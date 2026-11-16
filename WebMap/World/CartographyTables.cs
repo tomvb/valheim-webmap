@@ -288,10 +288,14 @@ namespace WebMap.World
                 package.ReadLong(); // owner; personal identity is not published to the web map
                 string label = package.ReadString();
                 Vector3 position = package.ReadVector3();
-                package.ReadInt();  // Minimap.PinType; never used for merging or rendering this layer
+                int pinType = package.ReadInt(); // Minimap.PinType; kept for icon/cat, ignored when merging
                 bool checkedOff = package.ReadBool();
                 if (version >= 3) package.ReadString(); // author platform ID
-                pins.Add(new Markers.SharedTablePin { x = position.x, y = position.y, z = position.z, label = label, checkedOff = checkedOff });
+                pins.Add(new Markers.SharedTablePin
+                {
+                    x = position.x, y = position.y, z = position.z,
+                    label = label, pinType = pinType, checkedOff = checkedOff,
+                });
             }
         }
 

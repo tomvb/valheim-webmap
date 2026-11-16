@@ -70,7 +70,7 @@ export class MarkerLayers {
         const color = colors[m.icon] || colors[cat] || '#9aa5b5';
         const mk = L.marker(toLatLng(m.x, m.z), { icon: makeIcon(m.icon || cat, color, m.label), riseOnHover: true, keyboard: false });
         if (m.cat === 'base' && window.app?.config?.web_edit_bases !== false) mk.bindPopup(() => this.basePopup(m, set));
-        else if (m.cat === 'shared-pin' && window.app?.config?.web_hide_cartography_pins !== false) mk.bindPopup(() => this.sharedPinPopup(m, set));
+        else if (set.id === 'cartography-pins' && window.app?.config?.web_hide_cartography_pins !== false) mk.bindPopup(() => this.sharedPinPopup(m, set));
         else mk.bindPopup(popupHtml(m, set));
         mk.data = m;
         g.addLayer(mk);
@@ -163,7 +163,7 @@ export class MarkerLayers {
         const r = await fetch('api/cartography-pin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-WebMap-Client': clientId() },
-          body: JSON.stringify({ x: m.x, z: m.z, label: m.label, hidden: true }),
+          body: JSON.stringify({ x: m.x, z: m.z, label: m.rawLabel || m.label, hidden: true }),
         });
         if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || r.status); }
         this.map.closePopup();

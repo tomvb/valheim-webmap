@@ -37,11 +37,13 @@ namespace WebMap.World
 
         // A source pin read from a Cartography Table. It is deliberately not a
         // game Minimap.PinData: this is server-side data only and never changes
-        // what clients have on their personal maps.
+        // what clients have on their personal maps. pinType is Minimap.PinType
+        // as an int (Boss=9, Hildir1..3=14..16, Icon0..4, …).
         internal sealed class SharedTablePin
         {
             public float x, y, z;
             public string label;
+            public int pinType;
             public bool checkedOff;
         }
 
@@ -53,7 +55,11 @@ namespace WebMap.World
             if (pins != null)
                 foreach (var pin in pins)
                     if (pin != null)
-                        next.Add(new SharedTablePin { x = pin.x, y = pin.y, z = pin.z, label = pin.label ?? "", checkedOff = pin.checkedOff });
+                        next.Add(new SharedTablePin
+                        {
+                            x = pin.x, y = pin.y, z = pin.z,
+                            label = pin.label ?? "", pinType = pin.pinType, checkedOff = pin.checkedOff,
+                        });
             sharedTablePins = next;
             try { json = Build(); rev++; MapDataServer.getInstance()?.BroadcastWorldRevision(); }
             catch (Exception e) { ZLog.LogWarning("WebMap: shared Cartography Table pins failed: " + e.Message); }
@@ -327,16 +333,19 @@ namespace WebMap.World
             // --- vehicles (from the same sweep)
             j.BeginObject().Prop("id", "vehicles").Prop("label", "Boats & carts").PropRaw("markers", Vehicles.GetMarkersJson()).End();
 
-            // --- pins explicitly written to Cartography Tables. Their source icon
-            // is intentionally not exposed or used for merging: same normalized
-            // label plus proximity is the complete identity rule for this layer.
+            // --- pins explicitly written to Cartography Tables. Merge identity is
+            // still normalized raw label + proximity; PinType and $… keys only
+            // affect the displayed icon/category and localized label.
             j.BeginObject().Prop("id", "cartography-pins").Prop("label", "Shared table pins").Key("markers").BeginArray();
             foreach (var pin in MergeSharedTablePins())
             {
                 if (!Visible(pin.x, pin.z)) continue;
                 if (FindHiddenSharedPin(pin.key, pin.x, pin.z) != null) continue;
+                ClassifySharedPin(pin.pinType, pin.rawLabel, out string cat, out string icon);
+                string display = LocalizePinLabel(pin.rawLabel);
                 j.BeginObject().Prop("x", pin.x, 1).Prop("z", pin.z, 1).Prop("y", pin.y, 1)
-                 .Prop("cat", "shared-pin").Prop("icon", "pin").Prop("label", pin.label)
+                 .Prop("cat", cat).Prop("icon", icon).Prop("label", display)
+                 .Prop("rawLabel", pin.rawLabel).Prop("pinType", pin.pinType)
                  .Prop("sharedCount", pin.count);
                 if (pin.checkedCount > 0) j.Prop("checkedCount", pin.checkedCount);
                 j.End();
@@ -354,11 +363,25 @@ namespace WebMap.World
 
         private sealed class MergedSharedTablePin
         {
-            public string key, label;
+            public string key, rawLabel;
+            public int pinType;
             public float seedX, seedZ;
             public float x, y, z;
             public int count, checkedCount;
         }
+
+        // Minimap.PinType values used for display. Merge identity still ignores type.
+        private const int PinIcon0 = 0;   // campfire
+        private const int PinIcon1 = 1;   // house
+        private const int PinIcon2 = 2;   // hammer / mine
+        private const int PinIcon3 = 3;   // dot
+        private const int PinDeath = 4;
+        private const int PinBed = 5;
+        private const int PinIcon4 = 6;   // portal
+        private const int PinBoss = 9;
+        private const int PinHildir1 = 14;
+        private const int PinHildir2 = 15;
+        private const int PinHildir3 = 16;
 
         // The first pin is the cluster anchor; the rendered position is the
         // average of every source pin in the cluster. This keeps merges stable
@@ -370,7 +393,8 @@ namespace WebMap.World
             var merged = new List<MergedSharedTablePin>();
             foreach (var pin in sharedTablePins)
             {
-                string key = NormalizePinLabel(pin.label);
+                string raw = pin.label ?? "";
+                string key = NormalizePinLabel(raw);
                 MergedSharedTablePin target = null;
                 foreach (var candidate in merged)
                 {
@@ -383,12 +407,15 @@ namespace WebMap.World
                     target = new MergedSharedTablePin
                     {
                         key = key,
-                        label = string.IsNullOrWhiteSpace(pin.label) ? "(unnamed pin)" : pin.label.Trim(),
+                        rawLabel = string.IsNullOrWhiteSpace(raw) ? "" : raw.Trim(),
+                        pinType = pin.pinType,
                         seedX = pin.x,
                         seedZ = pin.z,
                     };
                     merged.Add(target);
                 }
+                else if (SharedPinTypeRank(pin.pinType) > SharedPinTypeRank(target.pinType))
+                    target.pinType = pin.pinType;
                 int nextCount = target.count + 1;
                 target.x += (pin.x - target.x) / nextCount;
                 target.y += (pin.y - target.y) / nextCount;
@@ -397,6 +424,132 @@ namespace WebMap.World
                 if (pin.checkedOff) target.checkedCount++;
             }
             return merged;
+        }
+
+        // Prefer distinctive game types when several source pins collapse into one.
+        private static int SharedPinTypeRank(int pinType)
+        {
+            switch (pinType)
+            {
+                case PinBoss: return 40;
+                case PinHildir1:
+                case PinHildir2:
+                case PinHildir3: return 30;
+                case PinDeath: return 20;
+                case PinIcon0:
+                case PinIcon1:
+                case PinIcon2:
+                case PinIcon3:
+                case PinIcon4:
+                case PinBed: return 10;
+                default: return 0;
+            }
+        }
+
+        // Resolve $localization keys the way the in-game map does. Safe if
+        // Localization is missing (early boot / non-game thread): keep the key.
+        private static string LocalizePinLabel(string label)
+        {
+            if (string.IsNullOrWhiteSpace(label)) return "(unnamed pin)";
+            string trimmed = label.Trim();
+            if (trimmed.IndexOf('$') < 0) return trimmed;
+            try
+            {
+                Localization loc = Localization.instance;
+                if (loc != null)
+                {
+                    string text = loc.Localize(trimmed);
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        text = text.Trim();
+                        if (text.Length > 0 && text[0] != '$') return text;
+                    }
+                }
+            }
+            catch { }
+            return trimmed;
+        }
+
+        // Map Minimap.PinType and common $… label prefixes to web icon/cat names.
+        // Label heuristics win for discovery pins ($enemy_*, traders); PinType
+        // covers player-placed icons and Hildir quest markers.
+        private static void ClassifySharedPin(int pinType, string rawLabel, out string cat, out string icon)
+        {
+            string key = rawLabel ?? "";
+            if (key.StartsWith("$enemy_", StringComparison.OrdinalIgnoreCase))
+            {
+                cat = "boss"; icon = "boss"; return;
+            }
+            if (LooksLikeTraderLabel(key))
+            {
+                cat = "trader"; icon = "trader"; return;
+            }
+            if (LooksLikeDungeonLabel(key))
+            {
+                cat = "dungeon"; icon = "dungeon"; return;
+            }
+            if (LooksLikeCaveLabel(key))
+            {
+                cat = "cave"; icon = "cave"; return;
+            }
+
+            switch (pinType)
+            {
+                case PinBoss:
+                    cat = "boss"; icon = "boss"; return;
+                case PinHildir1:
+                case PinHildir2:
+                case PinHildir3:
+                    cat = "trader"; icon = "trader"; return;
+                case PinDeath:
+                    cat = "tombstone"; icon = "tombstone"; return;
+                case PinIcon0:
+                    cat = "shared-pin"; icon = "fire"; return;
+                case PinIcon1:
+                case PinBed:
+                    cat = "shared-pin"; icon = "house"; return;
+                case PinIcon2:
+                    cat = "shared-pin"; icon = "mine"; return;
+                case PinIcon3:
+                    cat = "shared-pin"; icon = "dot"; return;
+                case PinIcon4:
+                    cat = "shared-pin"; icon = "portal"; return;
+                default:
+                    cat = "shared-pin"; icon = "pin"; return;
+            }
+        }
+
+        private static bool LooksLikeTraderLabel(string key)
+        {
+            if (key.Length == 0) return false;
+            string lower = key.ToLowerInvariant();
+            return lower.IndexOf("trader", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("haldor", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("hildir", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("bogwitch", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("bog_witch", StringComparison.Ordinal) >= 0
+                || lower.StartsWith("$npc_merchant", StringComparison.Ordinal);
+        }
+
+        private static bool LooksLikeDungeonLabel(string key)
+        {
+            if (key.Length == 0) return false;
+            string lower = key.ToLowerInvariant();
+            return lower.IndexOf("crypt", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("dungeon", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("vault", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("tomb", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("infestedmine", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("infested_mine", StringComparison.Ordinal) >= 0;
+        }
+
+        private static bool LooksLikeCaveLabel(string key)
+        {
+            if (key.Length == 0) return false;
+            string lower = key.ToLowerInvariant();
+            return lower.IndexOf("cave", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("frostcave", StringComparison.Ordinal) >= 0
+                || lower.IndexOf("trollcave", StringComparison.Ordinal) >= 0;
         }
 
         private static string NormalizePinLabel(string label)

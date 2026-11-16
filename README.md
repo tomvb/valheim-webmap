@@ -45,7 +45,8 @@ browser. Share `http://your_ip:3000`. Players install nothing. Server only.
 * **Markers.** Portals with their tags and links, tombstones, player bases,
   boats, carts, Cartography Table pins and your own `markers.json`. Shared
   table pins with the same normalized label within the merge radius become one
-  marker. Boss altars, dungeons, traders and
+  marker; `$…` labels are localized and pin types map to icons (boss, trader,
+  …). Boss altars, dungeons, traders and
   the world seed are never sent out. No spoilers.
 * **Stats.** Per player: time played, visits, deaths, distance, portal trips,
   biomes. Per server: day, explored %, pieces built, trees, who was online
@@ -209,7 +210,7 @@ cuts that by four.
 | Texture | `reveal_cartography_tables` | true | lift fog from the exploration players have written to Cartography Tables |
 | Texture | `cartography_scan_interval` | 30 | seconds between scans for changed Cartography Tables |
 | Markers | `show_cartography_pins` | true | show pins explicitly shared through Cartography Tables in their own layer |
-| Markers | `cartography_pin_merge_radius` | 20 | metres for merging shared Cartography Table pins with the same normalized label; pin type is ignored |
+| Markers | `cartography_pin_merge_radius` | 20 | metres for merging shared Cartography Table pins with the same normalized label; pin type is ignored for merging (still used for the displayed icon) |
 | User | `web_hide_cartography_pins` | true | let the web page hide shared Cartography Table pins (does not change the in-game table) |
 | Discord | `discord_webhook`, `discord_invite_url` | | webhook for events |
 | Server | `webmap_url`, `max_pins_per_user` | | link shown in game, pin limit |
